@@ -444,9 +444,6 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
-# ==========================================
-# 2. PEMUATAN MODEL & DATA (CACHED)
-# ==========================================
 @st.cache_resource(show_spinner="⚙️ Memuat model AI...")
 def load_ai_models():
     from sklearn.linear_model import LogisticRegression
@@ -454,16 +451,12 @@ def load_ai_models():
 
     ensemble = joblib.load('model_ensemble.joblib')
 
-    for name, estimator in ensemble.estimators:
+    for estimator in ensemble.estimators_:
         inner = estimator
         if isinstance(estimator, Pipeline):
             inner = estimator.steps[-1][1]
         if isinstance(inner, LogisticRegression):
-            for attr in ('multi_class', 'l1_ratio'):
-                try:
-                    delattr(inner, attr)
-                except AttributeError:
-                    pass
+            inner.multi_class = 'deprecated'
 
     lstm = load_model('model_lstm.h5')
     scaler = joblib.load('scaler_lstm.joblib')
@@ -485,9 +478,6 @@ def load_market_data():
 model_ensemble, model_lstm, scaler_lstm = load_ai_models()
 df_transaksi, df_ulasan = load_market_data()
 
-# ==========================================
-# 3. PIPELINE K-MEANS
-# ==========================================
 def hitung_kmeans_dinamis(df_trx):
     if df_trx.empty:
         return pd.DataFrame(columns=['Kategori Segmen', 'Jumlah'])
@@ -527,13 +517,9 @@ def hitung_kmeans_dinamis(df_trx):
     df_hasil.columns = ['Kategori Segmen', 'Jumlah']
     return df_hasil
 
-# ==========================================
-# 4. FUNGSI LSTM FORECAST
-# ==========================================
 def generate_lstm_forecast(df_trx, model, scaler):
     """Menghasilkan proyeksi 30 hari ke depan dengan pola fluktuasi akhir pekan"""
     
-    # 1. Gunakan 30 hari terakhir data RIIL dari Supabase sebagai benih (seed)
     penjualan_harian = df_trx.groupby('tanggal_transaksi')['total_belanja'].sum().reset_index()
     penjualan_harian = penjualan_harian.sort_values('tanggal_transaksi')
     
@@ -542,11 +528,9 @@ def generate_lstm_forecast(df_trx, model, scaler):
     else:
         base_history = np.random.normal(150000, 10000, 30)
     
-    # Normalisasi input
     input_seq = scaler.transform(base_history.reshape(-1, 1))
     input_seq = input_seq.reshape((1, 30, 1))
     
-    # 2. Prediksi Iteratif LSTM
     prediksi_30_hari = []
     current_seq = input_seq.copy()
     
@@ -555,28 +539,19 @@ def generate_lstm_forecast(df_trx, model, scaler):
         prediksi_30_hari.append(pred_scaled[0, 0])
         current_seq = np.append(current_seq[:, 1:, :], [[pred_scaled[0]]], axis=1)
         
-    # Kembalikan ke format nominal Rupiah
     prediksi_rupiah = scaler.inverse_transform(np.array(prediksi_30_hari).reshape(-1, 1))
     prediksi_final = prediksi_rupiah.flatten()
     
-    # 3. Injeksi Fluktuasi Musiman (Efek Akhir Pekan)
-    # Langkah ini untuk mengkompensasi efek 'smoothing' dari autoregressive LSTM
     dates = pd.date_range(start=datetime.now(), periods=30, freq='D')
     
     for idx, date in enumerate(dates):
-        if date.weekday() >= 5: # Angka 5 & 6 merepresentasikan Sabtu & Minggu
-            # Simulasikan lonjakan transaksi akhir pekan sebesar 15% hingga 25%
+        if date.weekday() >= 5:
             prediksi_final[idx] += prediksi_final[idx] * np.random.uniform(0.15, 0.25)
         else:
-            # Berikan sedikit variasi acak (noise) pada hari kerja agar tidak kaku
             prediksi_final[idx] += prediksi_final[idx] * np.random.uniform(-0.05, 0.05)
 
     return pd.DataFrame({'Tanggal': dates, 'Proyeksi Transaksi Pasar (Rp)': prediksi_final})
-# ==========================================
-# 5. RENDER UI
-# ==========================================
 
-# ── HERO HEADER ──
 st.markdown("""
 <div class="hero-header">
     <div class="hero-badge">● Live Intelligence System</div>
@@ -585,7 +560,6 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# ── METRIC CARDS ──
 total_trx = len(df_transaksi) if not df_transaksi.empty else 0
 st.markdown(f"""
 <div class="metric-grid">
@@ -610,16 +584,12 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# ── TABS ──
 tab1, tab2, tab3 = st.tabs([
     "📈  Proyeksi Tren Pasar",
     "👥  Peta Segmen Konsumen",
     "🎯  Simulasi Niat Beli"
 ])
 
-# ─────────────────────────────────────────
-# TAB 1 — FORECASTING
-# ─────────────────────────────────────────
 with tab1:
     st.markdown("""
     <div class="section-title">📈 Proyeksi Permintaan Pasar — 30 Hari ke Depan</div>
@@ -631,7 +601,6 @@ with tab1:
 
     df_forecast = generate_lstm_forecast(df_transaksi, model_lstm, scaler_lstm)
 
-    # Chart styling
     avg_pred = df_forecast['Proyeksi Transaksi Pasar (Rp)'].mean()
     fig = go.Figure()
     fig.add_trace(go.Scatter(
@@ -671,7 +640,6 @@ with tab1:
     )
     st.plotly_chart(fig, use_container_width=True)
 
-    # Insight callout
     max_day = df_forecast.loc[df_forecast['Proyeksi Transaksi Pasar (Rp)'].idxmax()]
     st.info(
         f"**💡 Rekomendasi AI:** Puncak permintaan diperkirakan pada **{max_day['Tanggal'].strftime('%d %B %Y')}** "
@@ -679,9 +647,6 @@ with tab1:
         f"Tingkatkan kapasitas produksi dan stok bahan baku menjelang tanggal tersebut."
     )
 
-# ─────────────────────────────────────────
-# TAB 2 — K-MEANS SEGMENTATION
-# ─────────────────────────────────────────
 with tab2:
     st.markdown("""
     <div class="section-title">👥 Peta Karakter Konsumen — Hasil K-Means RFM</div>
@@ -777,9 +742,6 @@ with tab2:
     else:
         st.warning("⚠️ Database transaksi masih kosong. Jalankan `rfm_segmentation.py` untuk mengisi data awal.")
 
-# ─────────────────────────────────────────
-# TAB 3 — ENSEMBLE SIMULATOR
-# ─────────────────────────────────────────
 with tab3:
     st.markdown("""
     <div class="section-title">🎯 Kalkulator Prediksi Niat Beli Konsumen</div>
@@ -874,7 +836,6 @@ with tab3:
             </div>
             """, unsafe_allow_html=True)
 
-# ── FOOTER ──
 st.markdown("<br>", unsafe_allow_html=True)
 st.markdown("""
 <div style="
