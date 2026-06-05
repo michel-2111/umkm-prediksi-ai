@@ -449,7 +449,22 @@ with st.sidebar:
 # ==========================================
 @st.cache_resource(show_spinner="⚙️ Memuat model AI...")
 def load_ai_models():
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.pipeline import Pipeline
+
     ensemble = joblib.load('model_ensemble.joblib')
+
+    for name, estimator in ensemble.estimators:
+        inner = estimator
+        if isinstance(estimator, Pipeline):
+            inner = estimator.steps[-1][1]
+        if isinstance(inner, LogisticRegression):
+            for attr in ('multi_class', 'l1_ratio'):
+                try:
+                    delattr(inner, attr)
+                except AttributeError:
+                    pass
+
     lstm = load_model('model_lstm.h5')
     scaler = joblib.load('scaler_lstm.joblib')
     return ensemble, lstm, scaler
