@@ -7,7 +7,6 @@ import csv
 
 st.set_page_config(page_title="Panel Admin – MarketIQ", page_icon="🔒", layout="wide")
 
-# ── CSS KONSISTEN (sama dengan app.py) ──
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
@@ -398,7 +397,6 @@ div[data-testid="metric-container"] {
 </style>
 """, unsafe_allow_html=True)
 
-# ── SIDEBAR ──
 with st.sidebar:
     st.markdown("""
     <div class="sidebar-brand">
@@ -426,9 +424,6 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
-# ==========================================
-# AUTENTIKASI
-# ==========================================
 if 'authenticated' not in st.session_state:
     st.session_state['authenticated'] = False
 
@@ -441,16 +436,50 @@ if not st.session_state['authenticated']:
     </div>
     """, unsafe_allow_html=True)
 
+    st.markdown("""
+    <style>
+    /* Hapus gap antar elemen di dalam kolom login */
+    div[data-testid="column"]:first-child > div:first-child {
+        gap: 0 !important;
+    }
+    /* Hapus margin atas bawaan st.text_input type=password */
+    div[data-testid="stTextInput"] {
+        margin-top: 0 !important;
+        margin-bottom: 0.75rem !important;
+    }
+    div[data-testid="stTextInput"] > div {
+        margin-top: 0 !important;
+    }
+    /* Styling khusus tombol login admin */
+    div[data-testid="stButton"] > button[kind="primary"] {
+        background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+        box-shadow: 0 4px 20px rgba(239,68,68,0.35) !important;
+        border-radius: 12px !important;
+        font-weight: 700 !important;
+        font-size: 0.9rem !important;
+        padding: 0.75rem 2rem !important;
+        width: 100% !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
     col_login, col_spacer = st.columns([1, 2])
     with col_login:
         st.markdown("""
         <div style="background:#0f1724;border:1px solid rgba(255,255,255,0.07);
-            border-radius:16px;padding:1.8rem 2rem;margin-top:0.5rem;">
+            border-radius:16px;padding:1.8rem 2rem;">
+        <div style="font-size:0.8rem;font-weight:600;color:#94a3b8;
+            margin-bottom:0.6rem;letter-spacing:0.04em;">KATA SANDI ADMIN</div>
         """, unsafe_allow_html=True)
-        input_password = st.text_input("Kata Sandi Admin", type="password",
+
+        input_password = st.text_input(
+            "password",
+            type="password",
             placeholder="Masukkan kata sandi...",
-            label_visibility="collapsed")
+            label_visibility="collapsed"
+        )
         login_btn = st.button("🔓 Masuk ke Panel Admin", use_container_width=True, type="primary")
+
         st.markdown("</div>", unsafe_allow_html=True)
 
         if login_btn:
@@ -460,9 +489,6 @@ if not st.session_state['authenticated']:
             else:
                 st.error("❌ Kata sandi salah. Coba lagi.")
 
-# ==========================================
-# KONTEN ADMIN (hanya tampil setelah login)
-# ==========================================
 if st.session_state['authenticated']:
 
     # Tombol logout di sidebar
@@ -472,7 +498,6 @@ if st.session_state['authenticated']:
             st.session_state['authenticated'] = False
             st.rerun()
 
-    # Hero header admin
     st.markdown("""
     <div class="hero-header">
         <div class="hero-badge">● Administrator Aktif</div>
@@ -481,7 +506,6 @@ if st.session_state['authenticated']:
     </div>
     """, unsafe_allow_html=True)
 
-    # Status badge
     total_metric, model_metric, db_metric = st.columns(3)
     st.markdown("""
     <div class="metric-grid">
@@ -514,13 +538,9 @@ if st.session_state['authenticated']:
         "⚙️  Pelatihan Ulang AI"
     ])
 
-    # ── SUB-TAB 1: UPLOAD ──
-    # --- SUB-TAB 1: UPLOAD DATA KAGGLE ---
-    # --- SUB-TAB 1: UPLOAD DATA KAGGLE ---
     with sub_tab1:
         st.subheader("📤 Transformasi & Injeksi Dataset")
         
-        # 1. Kotak Peringatan Spesifikasi Kolom Wajib
         st.warning("""
         **⚠️ PERINGATAN SPESIFIKASI FORMAT DATA:**
         Sistem menggunakan validasi skema otomatis. Sebelum mengunggah, pastikan file CSV Anda telah disesuaikan di Excel/WPS sehingga memiliki nama kolom **persis** seperti di bawah ini (huruf kecil semua):
@@ -529,12 +549,8 @@ if st.session_state['authenticated']:
         * **Untuk Data Ulasan (Kanan):** `teks_ulasan`, `rating`, `tanggal_ulasan`
         """)
         
-        # Membagi layar menjadi 2 kolom sejajar
         col1, col2 = st.columns(2)
         
-        # ==========================================
-        # KOLOM 1: UPLOAD DATA TRANSAKSI PENJUALAN
-        # ==========================================
         with col1:
             st.markdown("**🛒 1. Data Transaksi (Penjualan)**")
             uploaded_trx = st.file_uploader("Pilih CSV Transaksi", type=["csv"], key="upload_trx")
@@ -543,7 +559,6 @@ if st.session_state['authenticated']:
                 try:
                     df_raw_trx = pd.read_csv(uploaded_trx, sep=None, engine='python')
                     
-                    # Validasi Kompatibilitas Kolom
                     required_trx = ['id_pelanggan', 'tanggal_transaksi', 'total_belanja']
                     missing_trx = [col for col in required_trx if col not in df_raw_trx.columns]
                     
@@ -561,7 +576,6 @@ if st.session_state['authenticated']:
                                 df_clean_trx['total_belanja'] = pd.to_numeric(df_raw_trx['total_belanja'], errors='coerce')
                                 df_clean_trx['status_pembelian'] = True
                                 
-                                # Hapus baris kosong hasil konversi yang gagal
                                 df_clean_trx = df_clean_trx.dropna(subset=['tanggal_transaksi', 'total_belanja'])
                                 
                                 df_clean_trx.to_sql('data_transaksi', engine, if_exists='append', index=False)
@@ -569,44 +583,32 @@ if st.session_state['authenticated']:
                 except Exception as e:
                     st.error(f"Error pemrosesan: {e}")
 
-        # ==========================================
-        # KOLOM 2: UPLOAD DATA ULASAN (SENTIMEN)
-        # ==========================================
-        # ==========================================
-        # KOLOM 2: UPLOAD DATA ULASAN (SENTIMEN)
-        # ==========================================
         with col2:
             st.markdown("**⭐ 2. Data Ulasan (Reviews)**")
             uploaded_rev = st.file_uploader("Pilih CSV Ulasan", type=["csv"], key="upload_rev")
             
             if uploaded_rev is not None:
                 try:
-                    # --- FASE 1: PEMBACAAN & DETEKSI FILE ---
                     raw_bytes = uploaded_rev.read(4096)
-                    uploaded_rev.seek(0) # Kembalikan kursor ke awal setelah diintip
+                    uploaded_rev.seek(0)
                     
-                    # Deteksi encoding
                     try:
                         raw_bytes.decode('utf-8')
                         encoding = 'utf-8'
                     except UnicodeDecodeError:
                         encoding = 'latin-1'
                     
-                    # Deteksi separator menggunakan csv.Sniffer
                     try:
                         sample = raw_bytes.decode(encoding, errors='replace')
                         dialect = csv.Sniffer().sniff(sample, delimiters=',;\t|')
                         separator = dialect.delimiter
                     except csv.Error:
-                        # Fallback aman jika Sniffer gagal karena data terlalu sedikit/berantakan
                         separator = ','
                     
-                    # Baca file menggunakan hasil deteksi (on_bad_lines akan melewati baris yang rusak)
                     df_raw_rev = pd.read_csv(uploaded_rev, sep=separator, encoding=encoding, on_bad_lines='skip')
 
                     df_raw_rev.columns = df_raw_rev.columns.str.strip().str.replace('"', '').str.lower()
                     
-                    # --- FASE 2: VALIDASI KOLOM ---
                     if len(df_raw_rev.columns) < 3:
                         raise ValueError(f"Hanya {len(df_raw_rev.columns)} kolom terdeteksi (Pemisah '{separator}'). Periksa format file CSV Anda.")
 
@@ -619,34 +621,21 @@ if st.session_state['authenticated']:
                         st.success(f"✅ Struktur data ulasan valid! (Encoding: {encoding}, Pemisah: '{separator}')")
                         st.write("🔍 Pratinjau Data:", df_raw_rev.head(3))
                         
-                        # --- FASE 3: PEMBERSIHAN & UNGGAH KE DATABASE ---
                         if st.button("🔥 Suntik ke data_ulasan"):
                             with st.spinner("Mengunggah ke database..."):
                                 df_clean_rev = pd.DataFrame()
-                                
-                                # Cegah NaN berubah menjadi string "nan"
                                 df_clean_rev['teks_ulasan'] = df_raw_rev['teks_ulasan'].fillna("").astype(str)
-                                
-                                # Buang baris yang teks ulasannya benar-benar kosong
                                 df_clean_rev = df_clean_rev[df_clean_rev['teks_ulasan'].str.strip() != ""]
-                                
-                                # Konversi angka dan tanggal
                                 df_clean_rev['rating'] = pd.to_numeric(df_raw_rev['rating'], errors='coerce').fillna(3).astype(int)
-                                
-                                # Biarkan format datetime bawaan Pandas agar kompatibel dengan to_sql SQLAlchemy
                                 df_clean_rev['tanggal_ulasan'] = pd.to_datetime(df_raw_rev['tanggal_ulasan'], errors='coerce')
-                                
-                                # Buang baris yang tanggalnya gagal dikonversi (NaT)
                                 df_clean_rev = df_clean_rev.dropna(subset=['tanggal_ulasan'])
                                 
-                                # Suntikkan ke Supabase
                                 df_clean_rev.to_sql('data_ulasan', engine, if_exists='append', index=False)
                                 st.success(f"🚀 Berhasil menyuntikkan {len(df_clean_rev)} ulasan baru!")
 
                 except Exception as e:
                     st.error(f"Error pemrosesan: {e}")
 
-    # ── SUB-TAB 2: CRUD ──
     with sub_tab2:
         st.markdown('<div class="section-title">🛠 Manajemen Data Transaksi</div>', unsafe_allow_html=True)
         st.markdown('<div class="section-desc">Menampilkan 50 transaksi terbaru. Gunakan fitur hapus dengan hati-hati — tindakan ini tidak dapat dibatalkan.</div>', unsafe_allow_html=True)
@@ -677,12 +666,10 @@ if st.session_state['authenticated']:
         except Exception as e:
             st.error(f"Gagal memuat data: {e}")
 
-    # ── SUB-TAB 3: RETRAINING ──
     with sub_tab3:
         st.markdown('<div class="section-title">⚙️ Orkestrasi Pelatihan Ulang Model AI</div>', unsafe_allow_html=True)
         st.markdown('<div class="section-desc">Memicu eksekusi <code>train_real_models.py</code> untuk melatih ulang seluruh model (LSTM, Ensemble, K-Means) menggunakan data transaksi terbaru dari Supabase.</div>', unsafe_allow_html=True)
 
-        # Info box sebelum retraining
         st.info("⚠️ Proses ini memakan waktu beberapa menit. Jangan tutup halaman saat eksekusi berlangsung.")
 
         col_btn, col_spacer2 = st.columns([1, 2])
@@ -709,7 +696,6 @@ if st.session_state['authenticated']:
                 except Exception as e:
                     st.error(f"Gagal menjalankan skrip: {e}")
 
-    # Footer
     st.markdown("""
     <div style="text-align:center;color:#374151;font-size:0.72rem;padding:1.5rem 0;
         border-top:1px solid rgba(255,255,255,0.05);margin-top:2rem;">
